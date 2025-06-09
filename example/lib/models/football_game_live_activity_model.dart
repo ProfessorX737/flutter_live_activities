@@ -1,6 +1,6 @@
 import 'package:live_activities/models/live_activity_file.dart';
 
-class FootballGameLiveActivityModel {
+class TaskPlayerModel {
   final String? activityId;
   final DateTime? matchStartDate;
   final DateTime? matchEndDate;
@@ -17,7 +17,9 @@ class FootballGameLiveActivityModel {
   final int teamBScore;
   final LiveActivityFileFromAsset? teamBLogo;
 
-  const FootballGameLiveActivityModel({
+  final bool isPlaying;
+
+  const TaskPlayerModel({
     this.activityId,
     this.teamAName,
     this.matchName,
@@ -31,6 +33,7 @@ class FootballGameLiveActivityModel {
     this.teamBLogo,
     this.matchEndDate,
     this.matchStartDate,
+    this.isPlaying = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -48,12 +51,13 @@ class FootballGameLiveActivityModel {
       'teamBLogo': teamBLogo,
       'matchStartDate': matchStartDate?.millisecondsSinceEpoch,
       'matchEndDate': matchEndDate?.millisecondsSinceEpoch,
+      'isPlaying': isPlaying,
     };
 
     return map;
   }
 
-  FootballGameLiveActivityModel copyWith({
+  TaskPlayerModel copyWith({
     String? activityId,
     DateTime? matchStartDate,
     DateTime? matchEndDate,
@@ -67,8 +71,9 @@ class FootballGameLiveActivityModel {
     String? teamBState,
     int? teamBScore,
     LiveActivityFileFromAsset? teamBLogo,
+    bool? isPlaying,
   }) {
-    return FootballGameLiveActivityModel(
+    return TaskPlayerModel(
       activityId: activityId ?? this.activityId,
       ruleFile: ruleFile ?? this.ruleFile,
       matchStartDate: matchStartDate ?? this.matchStartDate,
@@ -82,6 +87,7 @@ class FootballGameLiveActivityModel {
       teamBState: teamBState ?? this.teamBState,
       teamBScore: teamBScore ?? this.teamBScore,
       teamBLogo: teamBLogo ?? this.teamBLogo,
+      isPlaying: isPlaying ?? this.isPlaying,
     );
   }
 }

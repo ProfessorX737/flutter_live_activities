@@ -100,4 +100,17 @@ abstract class LiveActivitiesPlatform extends PlatformInterface {
 
   Stream<String> get pushToStartTokenUpdateStream => throw UnimplementedError(
       'pushToStartTokenUpdateStream has not been implemented');
+
+  Stream<Map<String, dynamic>> get buttonActionStream =>
+      throw UnimplementedError('buttonActionStream has not been implemented');
+
+  Future<void> registerButtonActionNotification(String notificationName) {
+    throw UnimplementedError(
+        'registerButtonActionNotification() has not been implemented.');
+  }
+
+  Future<void> unregisterButtonActionNotification(String notificationName) {
+    throw UnimplementedError(
+        'unregisterButtonActionNotification() has not been implemented.');
+  }
 }

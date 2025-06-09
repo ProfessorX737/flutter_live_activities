@@ -29,12 +29,15 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
   private var appLifecycleLiveActivityIds = [String]()
   private var activityEventSink: FlutterEventSink?
   private var pushToStartTokenEventSink: FlutterEventSink?
+  private var buttonActionEventSink: FlutterEventSink?
+  private var observedNotificationNames: Set<String> = []
   
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "live_activities", binaryMessenger: registrar.messenger())
     let urlSchemeChannel = FlutterEventChannel(name: "live_activities/url_scheme", binaryMessenger: registrar.messenger())
     let activityStatusChannel = FlutterEventChannel(name: "live_activities/activity_status", binaryMessenger: registrar.messenger())
     let pushToStartTokenUpdatesChannel = FlutterEventChannel(name: "live_activities/push_to_start_token_updates", binaryMessenger: registrar.messenger())
+    let buttonActionChannel = FlutterEventChannel(name: "live_activities/button_actions", binaryMessenger: registrar.messenger())
     
     let instance = LiveActivitiesPlugin()
     
@@ -42,6 +45,7 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
     urlSchemeChannel.setStreamHandler(instance)
     activityStatusChannel.setStreamHandler(instance)
     pushToStartTokenUpdatesChannel.setStreamHandler(instance)
+    buttonActionChannel.setStreamHandler(instance)
     registrar.addApplicationDelegate(instance)
   }
 
@@ -49,6 +53,8 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
     urlSchemeSink = nil
     activityEventSink = nil
     pushToStartTokenEventSink = nil
+    buttonActionEventSink = nil
+    stopObservingButtonActions()
   }
 
   public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
@@ -60,6 +66,9 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
       } else if (args == "pushToStartTokenUpdateStream") {
         pushToStartTokenEventSink = events
         startObservingPushToStartTokens()
+      } else if (args == "buttonActionStream") {
+        buttonActionEventSink = events
+        startObservingButtonActions()
       }
     }
     
@@ -74,6 +83,9 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
         activityEventSink = nil
       } else if (args == "pushToStartTokenUpdateStream") {
          pushToStartTokenEventSink = nil
+       } else if (args == "buttonActionStream") {
+         buttonActionEventSink = nil
+         stopObservingButtonActions()
        }
     }
     return nil
@@ -215,6 +227,28 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
             result(FlutterError(code: "WRONG_ARGS", message: "argument are not valid, check if 'data', 'activityId' is valid", details: nil))
           }
           break
+        case "registerButtonActionNotification":
+          guard let args = call.arguments as? [String: Any] else {
+            result(FlutterError(code: "WRONG_ARGS", message: "Unknown data type in argument", details: nil))
+            return
+          }
+          if let notificationName = args["notificationName"] as? String {
+            registerButtonActionNotification(notificationName: notificationName, result: result)
+          } else {
+            result(FlutterError(code: "WRONG_ARGS", message: "argument are not valid, check if 'notificationName' is valid", details: nil))
+          }
+          break
+        case "unregisterButtonActionNotification":
+          guard let args = call.arguments as? [String: Any] else {
+            result(FlutterError(code: "WRONG_ARGS", message: "Unknown data type in argument", details: nil))
+            return
+          }
+          if let notificationName = args["notificationName"] as? String {
+            unregisterButtonActionNotification(notificationName: notificationName, result: result)
+          } else {
+            result(FlutterError(code: "WRONG_ARGS", message: "argument are not valid, check if 'notificationName' is valid", details: nil))
+          }
+          break
         default:
           break
       }
@@ -244,7 +278,9 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
     let prefix = liveDeliveryAttributes.id
 
     for item in data {
-        sharedDefault!.set(item.value, forKey: "\(prefix)_\(item.key)")
+        if !(item.value is NSNull) {
+            sharedDefault!.set(item.value, forKey: "\(prefix)_\(item.key)")
+        }
     }
 
     if #available(iOS 16.2, *){
@@ -391,6 +427,77 @@ public class LiveActivitiesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
             self.pushToStartTokenEventSink?(token)
           }
         }
+      }
+    }
+  }
+
+  private func startObservingButtonActions() {
+    // This method is now called when the stream starts
+    // Individual notifications are registered via registerButtonActionNotification
+  }
+  
+  private func stopObservingButtonActions() {
+    // Remove all registered notification observers
+    for notificationName in observedNotificationNames {
+      CFNotificationCenterRemoveObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        Unmanaged.passUnretained(self).toOpaque(),
+        CFNotificationName(notificationName as CFString),
+        nil
+      )
+    }
+    observedNotificationNames.removeAll()
+  }
+  
+  private func registerButtonActionNotification(notificationName: String, result: @escaping FlutterResult) {
+    // Add observer for the specific notification name
+    CFNotificationCenterAddObserver(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      Unmanaged.passUnretained(self).toOpaque(),
+      { (center, observer, name, object, userInfo) in
+        if let observer = observer, let name = name {
+          let plugin = Unmanaged<LiveActivitiesPlugin>.fromOpaque(observer).takeUnretainedValue()
+          let notificationName = String(name.rawValue)
+          plugin.handleButtonAction(notificationName: notificationName)
+        }
+      },
+      notificationName as CFString,
+      nil,
+      .deliverImmediately
+    )
+    
+    observedNotificationNames.insert(notificationName)
+    result(nil)
+  }
+  
+  private func unregisterButtonActionNotification(notificationName: String, result: @escaping FlutterResult) {
+    CFNotificationCenterRemoveObserver(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      Unmanaged.passUnretained(self).toOpaque(),
+      CFNotificationName(notificationName as CFString),
+      nil
+    )
+    
+    observedNotificationNames.remove(notificationName)
+    result(nil)
+  }
+  
+  private func handleButtonAction(notificationName: String) {
+    // Use the notification name directly as the key to read stored actions from UserDefaults
+    // This makes it simple and clean - no need for additional suffixes
+    if let actions = sharedDefault?.array(forKey: notificationName) as? [[String: Any]], !actions.isEmpty {
+      // Get the latest action
+      if let latestAction = actions.last {
+        var actionWithNotification = latestAction
+        actionWithNotification["notificationName"] = notificationName
+        
+        // Send to Flutter
+        DispatchQueue.main.async {
+          self.buttonActionEventSink?(actionWithNotification)
+        }
+        
+        // Clear processed actions (optional - you might want to keep a history)
+        sharedDefault?.removeObject(forKey: notificationName)
       }
     }
   }

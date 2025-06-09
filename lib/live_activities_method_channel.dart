@@ -26,6 +26,10 @@ class MethodChannelLiveActivities extends LiveActivitiesPlatform {
   final EventChannel pushToStartTokenUpdatesChannel =
       const EventChannel('live_activities/push_to_start_token_updates');
 
+  @visibleForTesting
+  final EventChannel buttonActionChannel =
+      const EventChannel('live_activities/button_actions');
+
   @override
   Future init(String appGroupId, {String? urlScheme}) async {
     await methodChannel.invokeMethod('init', {
@@ -190,5 +194,40 @@ class MethodChannelLiveActivities extends LiveActivitiesPlatform {
         .receiveBroadcastStream('pushToStartTokenUpdateStream')
         .distinct()
         .cast<String>();
+  }
+
+  @override
+  Stream<Map<String, dynamic>> get buttonActionStream {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return Stream.empty();
+    }
+
+    return buttonActionChannel
+        .receiveBroadcastStream('buttonActionStream')
+        .distinct()
+        .map((dynamic event) => Map<String, dynamic>.from(event));
+  }
+
+  @override
+  Future<void> registerButtonActionNotification(String notificationName) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+
+    return methodChannel.invokeMethod('registerButtonActionNotification', {
+      'notificationName': notificationName,
+    });
+  }
+
+  @override
+  Future<void> unregisterButtonActionNotification(
+      String notificationName) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+
+    return methodChannel.invokeMethod('unregisterButtonActionNotification', {
+      'notificationName': notificationName,
+    });
   }
 }

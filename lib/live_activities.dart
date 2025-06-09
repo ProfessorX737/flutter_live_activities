@@ -83,7 +83,7 @@ class LiveActivities {
 
   /// Get the activity state.
   /// If the activity is not found, `null` is returned.
-  /// 
+  ///
   /// Only available on iOS.
   Future<LiveActivityState?> getActivityState(String activityId) {
     return LiveActivitiesPlatform.instance.getActivityState(activityId);
@@ -187,5 +187,59 @@ class LiveActivities {
     }
 
     yield* LiveActivitiesPlatform.instance.pushToStartTokenUpdateStream;
+  }
+
+  /// A stream of button actions from Live Activity widgets.
+  /// This stream emits data when buttons in Live Activities are pressed.
+  ///
+  /// The stream provides immediate notification when buttons are clicked in Live Activities,
+  /// using Darwin notifications for inter-process communication. The data is stored in
+  /// UserDefaults and includes action type, timestamp, and any additional parameters.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// liveActivities.buttonActionStream.listen((actionData) {
+  ///   final action = actionData['action'];
+  ///   final timestamp = actionData['timestamp'];
+  ///   print('Button action: $action at $timestamp');
+  /// });
+  /// ```
+  ///
+  /// This feature is only available on iOS 16.1+ with Live Activities.
+  Stream<Map<String, dynamic>> get buttonActionStream =>
+      LiveActivitiesPlatform.instance.buttonActionStream;
+
+  /// Register a Darwin notification name to listen for button actions.
+  /// This allows your Live Activity widgets to communicate with the Flutter app
+  /// by posting notifications with the specified name.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// await liveActivities.registerButtonActionNotification('com.myapp.favorite_clicked');
+  /// ```
+  ///
+  /// Then in your Swift widget code:
+  /// ```swift
+  /// CFNotificationCenterPostNotification(
+  ///   CFNotificationCenterGetDarwinNotifyCenter(),
+  ///   CFNotificationName("com.myapp.favorite_clicked" as CFString),
+  ///   nil, nil, true
+  /// )
+  /// ```
+  Future<void> registerButtonActionNotification(String notificationName) {
+    return LiveActivitiesPlatform.instance
+        .registerButtonActionNotification(notificationName);
+  }
+
+  /// Unregister a Darwin notification name to stop listening for button actions.
+  /// This removes the observer for the specified notification name.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// await liveActivities.unregisterButtonActionNotification('com.myapp.favorite_clicked');
+  /// ```
+  Future<void> unregisterButtonActionNotification(String notificationName) {
+    return LiveActivitiesPlatform.instance
+        .unregisterButtonActionNotification(notificationName);
   }
 }

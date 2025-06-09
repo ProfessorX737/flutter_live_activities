@@ -39,8 +39,8 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final _liveActivitiesPlugin = LiveActivities();
   String? _latestActivityId;
-  StreamSubscription<UrlSchemeData>? urlSchemeSubscription;
-  FootballGameLiveActivityModel? _footballGameLiveActivityModel;
+  StreamSubscription<Map<String, dynamic>>? buttonActionSubscription;
+  TaskPlayerModel? _taskPlayerModel;
 
   int teamAScore = 0;
   int teamBScore = 0;
@@ -53,43 +53,143 @@ class _HomeState extends State<Home> {
     super.initState();
 
     _liveActivitiesPlugin.init(
-        appGroupId: 'group.dimitridessus.liveactivities', urlScheme: 'la');
+        appGroupId: 'group.habitedge.liveActivitiesExample', urlScheme: 'la');
 
     if (Platform.isIOS) {
       _liveActivitiesPlugin.activityUpdateStream.listen((event) {
         print('Activity update: $event');
       });
 
-      urlSchemeSubscription =
-          _liveActivitiesPlugin.urlSchemeStream().listen((schemeData) {
-        setState(() {
-          if (schemeData.path == '/stats') {
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: const Text('Stats 📊'),
-                  content: Text(
-                    'Now playing final world cup between $teamAName and $teamBName\n\n$teamAName score: $teamAScore\n$teamBName score: $teamBScore',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                );
-              },
-            );
-          }
-        });
+      // Listen for button actions from Live Activities
+      buttonActionSubscription =
+          _liveActivitiesPlugin.buttonActionStream.listen((actionData) {
+        _handleButtonAction(actionData);
       });
+
+      // Register the specific notification names used by this app
+      _liveActivitiesPlugin.registerButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.favorite_button_clicked');
+      _liveActivitiesPlugin.registerButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.share_button_clicked');
+      _liveActivitiesPlugin.registerButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.play_button_clicked');
+      _liveActivitiesPlugin.registerButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.pause_button_clicked');
+    }
+  }
+
+  void _handleButtonAction(Map<String, dynamic> actionData) {
+    final action = actionData['action'] as String?;
+    final timestamp = actionData['timestamp'] as double?;
+    final matchId = actionData['matchId'] as String?;
+    final notificationName = actionData['notificationName'] as String?;
+
+    print(
+        'Button action received: $action at $timestamp for match: $matchId from notification: $notificationName');
+
+    // Handle different actions based on notification name and action type
+    if (notificationName ==
+        'group.habitedge.liveActivitiesExample.favorite_button_clicked') {
+      switch (action) {
+        case 'favorite_match':
+          setState(() {
+            // Update your app state here
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Match favorited! ❤️'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          });
+          break;
+        default:
+          print('Unknown action: $action');
+      }
+    } else if (notificationName ==
+        'group.habitedge.liveActivitiesExample.share_button_clicked') {
+      switch (action) {
+        case 'share_match':
+          setState(() {
+            // Update your app state here
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Match shared! 📤'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          });
+          break;
+        default:
+          print('Unknown action: $action');
+      }
+    } else if (notificationName ==
+        'group.habitedge.liveActivitiesExample.play_button_clicked') {
+      switch (action) {
+        case 'play_match':
+          setState(() {
+            _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: true);
+            _updateActivity();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Match resumed! ▶️'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          });
+          break;
+        default:
+          print('Unknown action: $action');
+      }
+    } else if (notificationName ==
+        'group.habitedge.liveActivitiesExample.pause_button_clicked') {
+      switch (action) {
+        case 'pause_match':
+          setState(() {
+            _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: false);
+            _updateActivity();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Match paused! ⏸️'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          });
+          break;
+        default:
+          print('Unknown action: $action');
+      }
+    } else {
+      print('Unknown notification: $notificationName');
+    }
+  }
+
+  // Update the activity with current model state
+  void _updateActivity() {
+    if (_taskPlayerModel != null && _latestActivityId != null) {
+      print('updating activity: ${_taskPlayerModel!.toMap()}');
+      _liveActivitiesPlugin.updateActivity(
+        _latestActivityId!,
+        _taskPlayerModel!.toMap(),
+      );
     }
   }
 
   @override
   void dispose() {
-    urlSchemeSubscription?.cancel();
+    buttonActionSubscription?.cancel();
+
+    // Unregister notification when disposing
+    if (Platform.isIOS) {
+      _liveActivitiesPlugin.unregisterButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.favorite_button_clicked');
+      _liveActivitiesPlugin.unregisterButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.share_button_clicked');
+      _liveActivitiesPlugin.unregisterButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.play_button_clicked');
+      _liveActivitiesPlugin.unregisterButtonActionNotification(
+          'group.habitedge.liveActivitiesExample.pause_button_clicked');
+    }
+
     _liveActivitiesPlugin.dispose();
     super.dispose();
   }
@@ -122,32 +222,65 @@ class _HomeState extends State<Home> {
                       height: 120,
                       child: Row(
                         children: [
-                          Expanded(
-                            child: ScoreWidget(
-                              score: teamAScore,
-                              teamName: teamAName,
-                              onScoreChanged: (score) {
-                                setState(() {
-                                  teamAScore = score < 0 ? 0 : score;
-                                });
-                                _updateScore();
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: ScoreWidget(
-                              score: teamBScore,
-                              teamName: teamBName,
-                              onScoreChanged: (score) {
-                                setState(() {
-                                  teamBScore = score < 0 ? 0 : score;
-                                });
-                                _updateScore();
-                              },
-                            ),
-                          ),
+                          // Expanded(
+                          //   child: ScoreWidget(
+                          //     score: teamAScore,
+                          //     teamName: teamAName,
+                          //     onScoreChanged: (score) {
+                          //       setState(() {
+                          //         teamAScore = score < 0 ? 0 : score;
+                          //       });
+                          //       _updateScore();
+                          //     },
+                          //   ),
+                          // ),
+                          // Expanded(
+                          //   child: ScoreWidget(
+                          //     score: teamBScore,
+                          //     teamName: teamBName,
+                          //     onScoreChanged: (score) {
+                          //       setState(() {
+                          //         teamBScore = score < 0 ? 0 : score;
+                          //       });
+                          //       _updateScore();
+                          //     },
+                          //   ),
+                          // ),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+              if (_latestActivityId != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        final currentIsPlaying =
+                            _taskPlayerModel?.isPlaying ?? false;
+                        _taskPlayerModel = _taskPlayerModel?.copyWith(
+                            isPlaying: !currentIsPlaying);
+                        _updateActivity();
+                      });
+                    },
+                    icon: Icon(
+                      (_taskPlayerModel?.isPlaying ?? false)
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled,
+                      size: 32,
+                    ),
+                    label: Text(
+                      (_taskPlayerModel?.isPlaying ?? false) ? 'Pause' : 'Play',
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 16),
+                      backgroundColor: (_taskPlayerModel?.isPlaying ?? false)
+                          ? Colors.orange
+                          : Colors.green,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ),
@@ -158,8 +291,7 @@ class _HomeState extends State<Home> {
                     await Permission.notification.request();
                     teamAScore = 0;
                     teamBScore = 0;
-                    _footballGameLiveActivityModel =
-                        FootballGameLiveActivityModel(
+                    _taskPlayerModel = TaskPlayerModel(
                       matchName: 'World cup ⚽️',
                       teamAName: 'PSG',
                       teamAState: 'Home',
@@ -185,12 +317,13 @@ class _HomeState extends State<Home> {
                           seconds: 30,
                         ),
                       ),
+                      isPlaying: false,
                     );
 
                     final activityId =
                         await _liveActivitiesPlugin.createActivity(
                       DateTime.now().millisecondsSinceEpoch.toString(),
-                      _footballGameLiveActivityModel!.toMap(),
+                      _taskPlayerModel!.toMap(),
                     );
                     print("ActivityID: $activityId");
                     setState(() => _latestActivityId = activityId);
@@ -262,11 +395,11 @@ class _HomeState extends State<Home> {
   }
 
   Future _updateScore() async {
-    if (_footballGameLiveActivityModel == null) {
+    if (_taskPlayerModel == null) {
       return;
     }
 
-    final data = _footballGameLiveActivityModel!.copyWith(
+    final data = _taskPlayerModel!.copyWith(
       teamAScore: teamAScore,
       teamBScore: teamBScore,
       // teamAName: null,
