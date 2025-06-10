@@ -4,9 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:live_activities/live_activities.dart';
 import 'package:live_activities/models/live_activity_file.dart';
-import 'package:live_activities/models/url_scheme_data.dart';
 import 'package:live_activities_example/models/football_game_live_activity_model.dart';
-import 'package:live_activities_example/widgets/score_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {
@@ -68,13 +66,7 @@ class _HomeState extends State<Home> {
 
       // Register the specific notification names used by this app
       _liveActivitiesPlugin.registerButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.favorite_button_clicked');
-      _liveActivitiesPlugin.registerButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.share_button_clicked');
-      _liveActivitiesPlugin.registerButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.play_button_clicked');
-      _liveActivitiesPlugin.registerButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.pause_button_clicked');
+          'group.habitedge.liveActivitiesExample.button_clicked');
     }
   }
 
@@ -87,79 +79,54 @@ class _HomeState extends State<Home> {
     print(
         'Button action received: $action at $timestamp for match: $matchId from notification: $notificationName');
 
-    // Handle different actions based on notification name and action type
-    if (notificationName ==
-        'group.habitedge.liveActivitiesExample.favorite_button_clicked') {
-      switch (action) {
-        case 'favorite_match':
-          setState(() {
-            // Update your app state here
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Match favorited! ❤️'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          });
-          break;
-        default:
-          print('Unknown action: $action');
-      }
-    } else if (notificationName ==
-        'group.habitedge.liveActivitiesExample.share_button_clicked') {
-      switch (action) {
-        case 'share_match':
-          setState(() {
-            // Update your app state here
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Match shared! 📤'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          });
-          break;
-        default:
-          print('Unknown action: $action');
-      }
-    } else if (notificationName ==
-        'group.habitedge.liveActivitiesExample.play_button_clicked') {
-      switch (action) {
-        case 'play_match':
-          setState(() {
-            _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: true);
-            _updateActivity();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Match resumed! ▶️'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          });
-          break;
-        default:
-          print('Unknown action: $action');
-      }
-    } else if (notificationName ==
-        'group.habitedge.liveActivitiesExample.pause_button_clicked') {
-      switch (action) {
-        case 'pause_match':
-          setState(() {
-            _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: false);
-            _updateActivity();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Match paused! ⏸️'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          });
-          break;
-        default:
-          print('Unknown action: $action');
-      }
-    } else {
-      print('Unknown notification: $notificationName');
+    // Handle different actions based on action type
+    switch (action) {
+      case 'favorite_match':
+        setState(() {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Match favorited! ❤️'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      case 'share_match':
+        setState(() {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Match shared! 📤'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      case 'play_match':
+        setState(() {
+          _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: true);
+          _updateActivity();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Match resumed! ▶️'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      case 'pause_match':
+        setState(() {
+          _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: false);
+          _updateActivity();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Match paused! ⏸️'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      default:
+        print('Unknown action: $action');
     }
   }
 
@@ -181,13 +148,7 @@ class _HomeState extends State<Home> {
     // Unregister notification when disposing
     if (Platform.isIOS) {
       _liveActivitiesPlugin.unregisterButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.favorite_button_clicked');
-      _liveActivitiesPlugin.unregisterButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.share_button_clicked');
-      _liveActivitiesPlugin.unregisterButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.play_button_clicked');
-      _liveActivitiesPlugin.unregisterButtonActionNotification(
-          'group.habitedge.liveActivitiesExample.pause_button_clicked');
+          'group.habitedge.liveActivitiesExample.button_clicked');
     }
 
     _liveActivitiesPlugin.dispose();
