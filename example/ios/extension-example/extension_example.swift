@@ -210,28 +210,59 @@ struct FootballMatchView: View {
   }
 
   var body: some View {
-    let isPlaying = sharedDefault.bool(forKey: context.attributes.prefixedKey("isPlaying"))
+    let isRunning = sharedDefault.bool(forKey: context.attributes.prefixedKey("isRunning"))
 
-    let startTime = Date()
-    let endTime = Date().addingTimeInterval(300)  // 5 minutes
-    let timeRange = startTime...endTime
+    // Read stopwatch data from shared defaults
+    let targetDurationMicros = sharedDefault.double(
+      forKey: context.attributes.prefixedKey("targetDuration"))
+    let prevTotalElapsedMicros = sharedDefault.double(
+      forKey: context.attributes.prefixedKey("prevTotalElapsed"))
+    let startTimeString = sharedDefault.string(forKey: context.attributes.prefixedKey("startTime"))
+
+    // Parse ISO8601 DateTime string
+    let startTime: Date? = {
+      guard let startTimeString = startTimeString, !startTimeString.isEmpty else { return nil }
+      let formatter = ISO8601DateFormatter()
+      return formatter.date(from: startTimeString)
+    }()
+
+    // Use single instance of "now" for accuracy
+    let now = Date()
+
+    // Calculate the timer range and pause time
+    let currentElapsedMicros =
+      (isRunning && startTime != nil)
+      ? now.timeIntervalSince(startTime!) * 1000000.0
+      : 0.0
+    let totalElapsedMicros = prevTotalElapsedMicros + currentElapsedMicros
+    let remainingMicros = max(0, targetDurationMicros - totalElapsedMicros)
+    let remainingSeconds = remainingMicros / 1000000.0
+    let endTime = now.addingTimeInterval(remainingSeconds)
+    let timerRange = now...endTime
+
+    // pauseTime is the DATE when the timer should pause
+    // When paused: set to upperBound to show remaining time
+    // When running: nil (never pause, let it count to zero)
+    let pauseTime: Date? = isRunning ? nil : timerRange.upperBound
 
     ZStack {
-      // LinearGradient(colors: [Color.black.opacity(0.5),Color.black.opacity(0.3)], startPoint: .topLeading, endPoint: .bottom)
-
-      VStack(spacing: 12) {
-        Text(timerInterval: timeRange, countsDown: true)
-          .font(.title2)
-          .monospacedDigit()
-        HStack {
-          // Button with immediate state update for responsive UI
-          Button(
-            intent: SetPlayingIntent.withOptimisticUpdate(isPlaying: !isPlaying) {
-              sharedDefault.set(!isPlaying, forKey: context.attributes.prefixedKey("isPlaying"))
-            }
-          ) {
+      VStack(spacing: 16) {
+        // Unified countdown timer with proper pause handling
+        Text(
+          timerInterval: timerRange,
+          pauseTime: pauseTime,
+          countsDown: true
+        )
+        .font(.largeTitle)
+        .fontWeight(.bold)
+        .monospacedDigit()
+        .foregroundColor(.black)
+        .multilineTextAlignment(.center)
+        HStack(spacing: 20) {
+          // Play/Pause Button - no optimistic updates
+          Button(intent: SetPlayingIntent(isRunning: !isRunning)) {
             ZStack {
-              if isPlaying {
+              if isRunning {
                 Image(systemName: "pause.fill")
                   .font(.system(size: 32))
                   .foregroundColor(.black)
@@ -251,7 +282,15 @@ struct FootballMatchView: View {
                     ))
               }
             }
-            .animation(.easeInOut(duration: 0.15), value: isPlaying)
+            .animation(.easeInOut(duration: 0.15), value: isRunning)
+          }
+          .buttonStyle(.plain)
+
+          // Plus Button
+          Button(intent: PlusActionIntent()) {
+            Image(systemName: "plus.circle.fill")
+              .font(.system(size: 32))
+              .foregroundColor(.green)
           }
           .buttonStyle(.plain)
         }
@@ -266,7 +305,15 @@ struct FootballMatchView: View {
     }
   }
 
-  // Helper function to format time
+  // Helper function to format duration for countdown
+  private func formatDuration(_ seconds: Double) -> String {
+    let totalSeconds = Int(seconds)
+    let minutes = totalSeconds / 60
+    let remainingSeconds = totalSeconds % 60
+    return String(format: "%d:%02d", minutes, remainingSeconds)
+  }
+
+  // Helper function to format time (legacy)
   private func formatTime(_ seconds: Double) -> String {
     let totalSeconds = Int(seconds)
     let minutes = totalSeconds / 60
@@ -336,31 +383,21 @@ extension MatchIntent {
 }
 
 struct SetPlayingIntent: MatchIntent {
-  static var title: LocalizedStringResource = "Set Playing State"
-  static var description = IntentDescription("Set the playing state of the match.")
+  static var title: LocalizedStringResource = "Set Running State"
+  static var description = IntentDescription("Set the running state of the stopwatch.")
 
-  @Parameter(title: "Is Playing")
-  var isPlaying: Bool
+  @Parameter(title: "Is Running")
+  var isRunning: Bool
 
-  var actionType: String { isPlaying ? "play_match" : "pause_match" }
+  var actionType: String { isRunning ? "play_match" : "pause_match" }
   var notificationSuffix: String { "button_clicked" }
 
-  var optimisticUpdateClosure: (() -> Void)? = nil
-
   init() {
-    self.isPlaying = false
+    self.isRunning = false
   }
 
-  init(isPlaying: Bool) {
-    self.isPlaying = isPlaying
-  }
-
-  static func withOptimisticUpdate(isPlaying: Bool, _ closure: @escaping () -> Void)
-    -> SetPlayingIntent
-  {
-    var intent = SetPlayingIntent(isPlaying: isPlaying)
-    intent.optimisticUpdateClosure = closure
-    return intent
+  init(isRunning: Bool) {
+    self.isRunning = isRunning
   }
 }
 
@@ -435,4 +472,13 @@ struct SetSliderValueIntent: MatchIntent {
 
     return .result()
   }
+}
+
+// Intent for the plus button interaction
+struct PlusActionIntent: MatchIntent {
+  static var title: LocalizedStringResource = "Plus Action"
+  static var description = IntentDescription("Increment or add something to the match.")
+
+  var actionType: String { "plus_action" }
+  var notificationSuffix: String { "button_clicked" }
 }

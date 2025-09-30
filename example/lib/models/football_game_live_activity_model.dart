@@ -1,93 +1,71 @@
-import 'package:live_activities/models/live_activity_file.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-class TaskPlayerModel {
-  final String? activityId;
-  final DateTime? matchStartDate;
-  final DateTime? matchEndDate;
-  final String? matchName;
-  final LiveActivityFileFromAsset? ruleFile;
+part 'football_game_live_activity_model.freezed.dart';
+part 'football_game_live_activity_model.g.dart';
 
-  final String? teamAName;
-  final String? teamAState;
-  final int teamAScore;
-  final LiveActivityFileFromAsset? teamALogo;
+@freezed
+class StopwatchState with _$StopwatchState {
+  const StopwatchState._();
 
-  final String? teamBName;
-  final String? teamBState;
-  final int teamBScore;
-  final LiveActivityFileFromAsset? teamBLogo;
+  factory StopwatchState({
+    required String? taskName,
+    required DateTime? taskStartTime,
+    required String? taskEmoji,
+    required Duration prevTotalElapsed,
+    required int ticker,
+    required DateTime? startTime,
+    required Duration? targetDuration,
+    required bool isRunning,
+    required bool isPipOpen,
+    required bool is24HourFormat,
+    required String? nextTaskName,
+    required String? nextTaskEmoji,
+  }) = _StopwatchState;
 
-  final bool isPlaying;
-
-  const TaskPlayerModel({
-    this.activityId,
-    this.teamAName,
-    this.matchName,
-    this.teamAState,
-    this.ruleFile,
-    this.teamAScore = 0,
-    this.teamBScore = 0,
-    this.teamALogo,
-    this.teamBName,
-    this.teamBState,
-    this.teamBLogo,
-    this.matchEndDate,
-    this.matchStartDate,
-    this.isPlaying = false,
-  });
-
-  Map<String, dynamic> toMap() {
-    final map = {
-      'activityId': activityId,
-      'matchName': matchName,
-      'ruleFile': ruleFile,
-      'teamAName': teamAName,
-      'teamAState': teamAState,
-      'teamALogo': teamALogo,
-      'teamAScore': teamAScore,
-      'teamBScore': teamBScore,
-      'teamBName': teamBName,
-      'teamBState': teamBState,
-      'teamBLogo': teamBLogo,
-      'matchStartDate': matchStartDate?.millisecondsSinceEpoch,
-      'matchEndDate': matchEndDate?.millisecondsSinceEpoch,
-      'isPlaying': isPlaying,
-    };
-
-    return map;
-  }
-
-  TaskPlayerModel copyWith({
-    String? activityId,
-    DateTime? matchStartDate,
-    DateTime? matchEndDate,
-    LiveActivityFileFromAsset? ruleFile,
-    String? matchName,
-    String? teamAName,
-    String? teamAState,
-    int? teamAScore,
-    LiveActivityFileFromAsset? teamALogo,
-    String? teamBName,
-    String? teamBState,
-    int? teamBScore,
-    LiveActivityFileFromAsset? teamBLogo,
-    bool? isPlaying,
+  factory StopwatchState.initial({
+    String? taskName,
+    DateTime? taskStartTime,
+    String? taskEmoji,
+    Duration? prevTotalElapsed,
+    int? ticker,
+    DateTime? startTime,
+    Duration? targetDuration,
+    bool? isRunning,
+    bool? isPipOpen,
+    bool? is24HourFormat,
+    String? nextTaskName,
+    String? nextTaskEmoji,
   }) {
-    return TaskPlayerModel(
-      activityId: activityId ?? this.activityId,
-      ruleFile: ruleFile ?? this.ruleFile,
-      matchStartDate: matchStartDate ?? this.matchStartDate,
-      matchEndDate: matchEndDate ?? this.matchEndDate,
-      matchName: matchName ?? this.matchName,
-      teamAName: teamAName ?? this.teamAName,
-      teamAState: teamAState ?? this.teamAState,
-      teamAScore: teamAScore ?? this.teamAScore,
-      teamALogo: teamALogo ?? this.teamALogo,
-      teamBName: teamBName ?? this.teamBName,
-      teamBState: teamBState ?? this.teamBState,
-      teamBScore: teamBScore ?? this.teamBScore,
-      teamBLogo: teamBLogo ?? this.teamBLogo,
-      isPlaying: isPlaying ?? this.isPlaying,
+    return StopwatchState(
+      taskName: taskName,
+      taskStartTime: taskStartTime,
+      taskEmoji: taskEmoji,
+      prevTotalElapsed: prevTotalElapsed ?? Duration.zero,
+      ticker: ticker ?? 0,
+      startTime: startTime,
+      targetDuration: targetDuration,
+      isRunning: isRunning ?? false,
+      isPipOpen: isPipOpen ?? false,
+      is24HourFormat: is24HourFormat ?? false,
+      nextTaskName: nextTaskName,
+      nextTaskEmoji: nextTaskEmoji,
     );
   }
+
+  factory StopwatchState.fromJson(Map<String, dynamic> json) =>
+      _$StopwatchStateFromJson(json);
+
+  Duration get currentElapsedDuration => isRunning
+      ? DateTime.now().difference(startTime ?? DateTime.now())
+      : Duration.zero;
+  Duration get elapsedDuration => prevTotalElapsed + currentElapsedDuration;
+  DateTime? get originalStartTime => startTime?.subtract(prevTotalElapsed);
+  Duration get remainingDuration =>
+      (targetDuration ?? Duration.zero) - elapsedDuration;
+  Duration get clampedRemainingDuration =>
+      remainingDuration < Duration.zero ? Duration.zero : remainingDuration;
+  Duration get overtimeDuration =>
+      remainingDuration < Duration.zero ? -remainingDuration : Duration.zero;
+  bool get isPaused => startTime != null && !isRunning;
+  bool get isStopped => startTime == null;
 }

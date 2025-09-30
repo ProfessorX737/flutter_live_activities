@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:live_activities/live_activities.dart';
-import 'package:live_activities/models/live_activity_file.dart';
 import 'package:live_activities_example/models/football_game_live_activity_model.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -38,13 +37,7 @@ class _HomeState extends State<Home> {
   final _liveActivitiesPlugin = LiveActivities();
   String? _latestActivityId;
   StreamSubscription<Map<String, dynamic>>? buttonActionSubscription;
-  TaskPlayerModel? _taskPlayerModel;
-
-  int teamAScore = 0;
-  int teamBScore = 0;
-
-  String teamAName = 'PSG';
-  String teamBName = 'Chelsea';
+  StopwatchState? _stopwatchState;
 
   @override
   void initState() {
@@ -81,33 +74,16 @@ class _HomeState extends State<Home> {
 
     // Handle different actions based on action type
     switch (action) {
-      case 'favorite_match':
-        setState(() {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Match favorited! ❤️'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        });
-        break;
-      case 'share_match':
-        setState(() {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Match shared! 📤'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        });
-        break;
       case 'play_match':
         setState(() {
-          _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: true);
+          _stopwatchState = _stopwatchState?.copyWith(
+            isRunning: true,
+            startTime: DateTime.now(),
+          );
           _updateActivity();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Match resumed! ▶️'),
+              content: Text('Resumed! ▶️'),
               duration: Duration(seconds: 2),
             ),
           );
@@ -115,11 +91,29 @@ class _HomeState extends State<Home> {
         break;
       case 'pause_match':
         setState(() {
-          _taskPlayerModel = _taskPlayerModel?.copyWith(isPlaying: false);
+          if (_stopwatchState != null && _stopwatchState!.isRunning) {
+            final elapsed = DateTime.now()
+                .difference(_stopwatchState!.startTime ?? DateTime.now());
+            _stopwatchState = _stopwatchState?.copyWith(
+              isRunning: false,
+              prevTotalElapsed: _stopwatchState!.prevTotalElapsed + elapsed,
+              startTime: null,
+            );
+          }
           _updateActivity();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Match paused! ⏸️'),
+              content: Text('Paused! ⏸️'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      case 'plus_action':
+        setState(() {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Plus button pressed! ➕'),
               duration: Duration(seconds: 2),
             ),
           );
@@ -132,13 +126,19 @@ class _HomeState extends State<Home> {
 
   // Update the activity with current model state
   void _updateActivity() {
-    if (_taskPlayerModel != null && _latestActivityId != null) {
-      print('updating activity: ${_taskPlayerModel!.toMap()}');
+    if (_stopwatchState != null && _latestActivityId != null) {
+      print('updating activity: ${_stopwatchState!.toJson()}');
       _liveActivitiesPlugin.updateActivity(
         _latestActivityId!,
-        _taskPlayerModel!.toMap(),
+        _stopwatchState!.toJson(),
       );
     }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -174,6 +174,33 @@ class _HomeState extends State<Home> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Debug display of current stopwatch state
+              if (_stopwatchState != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Debug - Flutter State:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Running: ${_stopwatchState!.isRunning}'),
+                      Text(
+                          'Target: ${_stopwatchState!.targetDuration?.inSeconds}s'),
+                      Text(
+                          'Prev Elapsed: ${_stopwatchState!.prevTotalElapsed.inMilliseconds}ms'),
+                      Text('Start Time: ${_stopwatchState!.startTime}'),
+                      Text(
+                          'Remaining: ${_stopwatchState!.clampedRemainingDuration.inSeconds}s'),
+                      Text(
+                          'Remaining (formatted): ${_formatDuration(_stopwatchState!.clampedRemainingDuration)}'),
+                    ],
+                  ),
+                ),
               if (_latestActivityId != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10.0),
@@ -218,27 +245,44 @@ class _HomeState extends State<Home> {
                   child: ElevatedButton.icon(
                     onPressed: () {
                       setState(() {
-                        final currentIsPlaying =
-                            _taskPlayerModel?.isPlaying ?? false;
-                        _taskPlayerModel = _taskPlayerModel?.copyWith(
-                            isPlaying: !currentIsPlaying);
+                        final currentIsRunning =
+                            _stopwatchState?.isRunning ?? false;
+                        if (currentIsRunning) {
+                          // Pause
+                          if (_stopwatchState != null) {
+                            final elapsed = DateTime.now().difference(
+                                _stopwatchState!.startTime ?? DateTime.now());
+                            _stopwatchState = _stopwatchState?.copyWith(
+                              isRunning: false,
+                              prevTotalElapsed:
+                                  _stopwatchState!.prevTotalElapsed + elapsed,
+                              startTime: null,
+                            );
+                          }
+                        } else {
+                          // Play
+                          _stopwatchState = _stopwatchState?.copyWith(
+                            isRunning: true,
+                            startTime: DateTime.now(),
+                          );
+                        }
                         _updateActivity();
                       });
                     },
                     icon: Icon(
-                      (_taskPlayerModel?.isPlaying ?? false)
+                      (_stopwatchState?.isRunning ?? false)
                           ? Icons.pause_circle_filled
                           : Icons.play_circle_filled,
                       size: 32,
                     ),
                     label: Text(
-                      (_taskPlayerModel?.isPlaying ?? false) ? 'Pause' : 'Play',
+                      (_stopwatchState?.isRunning ?? false) ? 'Pause' : 'Play',
                       style: const TextStyle(fontSize: 18),
                     ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 32, vertical: 16),
-                      backgroundColor: (_taskPlayerModel?.isPlaying ?? false)
+                      backgroundColor: (_stopwatchState?.isRunning ?? false)
                           ? Colors.orange
                           : Colors.green,
                       foregroundColor: Colors.white,
@@ -250,48 +294,24 @@ class _HomeState extends State<Home> {
                   onPressed: () async {
                     await _liveActivitiesPlugin.endAllActivities();
                     await Permission.notification.request();
-                    teamAScore = 0;
-                    teamBScore = 0;
-                    _taskPlayerModel = TaskPlayerModel(
-                      matchName: 'World cup ⚽️',
-                      teamAName: 'PSG',
-                      teamAState: 'Home',
-                      ruleFile: Platform.isIOS
-                          ? LiveActivityFileFromAsset('assets/files/rules.txt')
-                          : null,
-                      teamALogo: Platform.isIOS
-                          ? LiveActivityFileFromAsset.image(
-                              'assets/images/psg.png')
-                          : null,
-                      teamBLogo: Platform.isIOS
-                          ? LiveActivityFileFromAsset.image(
-                              'assets/images/chelsea.png',
-                              imageOptions: LiveActivityImageFileOptions(
-                                  resizeFactor: 0.2))
-                          : null,
-                      teamBName: 'Chelsea',
-                      teamBState: 'Guest',
-                      matchStartDate: DateTime.now(),
-                      matchEndDate: DateTime.now().add(
-                        const Duration(
-                          minutes: 6,
-                          seconds: 30,
-                        ),
-                      ),
-                      isPlaying: false,
+                    _stopwatchState = StopwatchState.initial(
+                      taskName: "Stopwatch",
+                      taskEmoji: "⏱️",
+                      targetDuration: const Duration(minutes: 5),
+                      isRunning: false,
                     );
 
                     final activityId =
                         await _liveActivitiesPlugin.createActivity(
                       DateTime.now().millisecondsSinceEpoch.toString(),
-                      _taskPlayerModel!.toMap(),
+                      _stopwatchState!.toJson(),
                     );
                     print("ActivityID: $activityId");
                     setState(() => _latestActivityId = activityId);
                   },
                   child: const Column(
                     children: [
-                      Text('Start football match ⚽️'),
+                      Text('Start Timer ⏱️'),
                       Text(
                         '(start a new live activity)',
                         style: TextStyle(
@@ -337,7 +357,7 @@ class _HomeState extends State<Home> {
                   },
                   child: const Column(
                     children: [
-                      Text('Stop match ✋'),
+                      Text('Stop Timer ✋'),
                       Text(
                         '(end all live activities)',
                         style: TextStyle(
@@ -352,22 +372,6 @@ class _HomeState extends State<Home> {
           ),
         ),
       ),
-    );
-  }
-
-  Future _updateScore() async {
-    if (_taskPlayerModel == null) {
-      return;
-    }
-
-    final data = _taskPlayerModel!.copyWith(
-      teamAScore: teamAScore,
-      teamBScore: teamBScore,
-      // teamAName: null,
-    );
-    return _liveActivitiesPlugin.updateActivity(
-      _latestActivityId!,
-      data.toMap(),
     );
   }
 }
