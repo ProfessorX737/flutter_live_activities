@@ -111,9 +111,17 @@ class _HomeState extends State<Home> {
         break;
       case 'plus_action':
         setState(() {
+          if (_stopwatchState != null) {
+            final currentTarget =
+                _stopwatchState!.targetDuration ?? Duration.zero;
+            _stopwatchState = _stopwatchState!.copyWith(
+              targetDuration: currentTarget + const Duration(minutes: 5),
+            );
+            _updateActivity();
+          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Plus button pressed! ➕'),
+            const SnackBar(
+              content: Text('Added 5 minutes! ➕'),
               duration: Duration(seconds: 2),
             ),
           );
@@ -124,13 +132,25 @@ class _HomeState extends State<Home> {
     }
   }
 
+  // Convert StopwatchState to JSON with Unix timestamp for startTime
+  Map<String, dynamic> _prepareActivityData(StopwatchState state) {
+    final json = state.toJson();
+
+    // Convert startTime from ISO8601 string to Unix milliseconds for Swift
+    if (json['startTime'] != null) {
+      final dateTime = DateTime.parse(json['startTime'] as String);
+      json['startTime'] = dateTime.millisecondsSinceEpoch;
+    }
+
+    return json;
+  }
+
   // Update the activity with current model state
   void _updateActivity() {
     if (_stopwatchState != null && _latestActivityId != null) {
-      print('updating activity: ${_stopwatchState!.toJson()}');
       _liveActivitiesPlugin.updateActivity(
         _latestActivityId!,
-        _stopwatchState!.toJson(),
+        _prepareActivityData(_stopwatchState!),
       );
     }
   }
@@ -304,7 +324,7 @@ class _HomeState extends State<Home> {
                     final activityId =
                         await _liveActivitiesPlugin.createActivity(
                       DateTime.now().millisecondsSinceEpoch.toString(),
-                      _stopwatchState!.toJson(),
+                      _prepareActivityData(_stopwatchState!),
                     );
                     print("ActivityID: $activityId");
                     setState(() => _latestActivityId = activityId);

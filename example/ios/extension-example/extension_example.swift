@@ -217,19 +217,17 @@ struct FootballMatchView: View {
       forKey: context.attributes.prefixedKey("targetDuration"))
     let prevTotalElapsedMicros = sharedDefault.double(
       forKey: context.attributes.prefixedKey("prevTotalElapsed"))
-    let startTimeString = sharedDefault.string(forKey: context.attributes.prefixedKey("startTime"))
+    let startTimeMillis = sharedDefault.double(
+      forKey: context.attributes.prefixedKey("startTime"))
 
-    // Parse ISO8601 DateTime string
-    let startTime: Date? = {
-      guard let startTimeString = startTimeString, !startTimeString.isEmpty else { return nil }
-      let formatter = ISO8601DateFormatter()
-      return formatter.date(from: startTimeString)
-    }()
+    // Convert Unix milliseconds to Date (timezone-independent)
+    let startTime: Date? =
+      startTimeMillis > 0
+      ? Date(timeIntervalSince1970: startTimeMillis / 1000.0)
+      : nil
 
-    // Use single instance of "now" for accuracy
+    // Calculate elapsed time and remaining duration
     let now = Date()
-
-    // Calculate the timer range and pause time
     let currentElapsedMicros =
       (isRunning && startTime != nil)
       ? now.timeIntervalSince(startTime!) * 1000000.0
@@ -258,6 +256,7 @@ struct FootballMatchView: View {
         .monospacedDigit()
         .foregroundColor(.black)
         .multilineTextAlignment(.center)
+        .id("\(targetDurationMicros)-\(totalElapsedMicros)")
         HStack(spacing: 20) {
           // Play/Pause Button - no optimistic updates
           Button(intent: SetPlayingIntent(isRunning: !isRunning)) {
@@ -288,9 +287,9 @@ struct FootballMatchView: View {
 
           // Plus Button
           Button(intent: PlusActionIntent()) {
-            Image(systemName: "plus.circle.fill")
+            Image(systemName: "plus.circle")
               .font(.system(size: 32))
-              .foregroundColor(.green)
+              .foregroundColor(.black)
           }
           .buttonStyle(.plain)
         }
