@@ -127,6 +127,52 @@ class _HomeState extends State<Home> {
           );
         });
         break;
+      case 'minus_action':
+        setState(() {
+          if (_stopwatchState != null) {
+            final currentTarget =
+                _stopwatchState!.targetDuration ?? Duration.zero;
+            final newTarget = currentTarget - const Duration(minutes: 5);
+            // Don't allow negative duration
+            _stopwatchState = _stopwatchState!.copyWith(
+              targetDuration: newTarget.isNegative ? Duration.zero : newTarget,
+            );
+            _updateActivity();
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Removed 5 minutes! ➖'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      case 'reset_action':
+        setState(() {
+          if (_stopwatchState != null) {
+            _stopwatchState = _stopwatchState!.copyWith(
+              startTime: _stopwatchState!.isRunning ? DateTime.now() : null,
+              prevTotalElapsed: Duration.zero,
+            );
+            _updateActivity();
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Timer reset! 🔄'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        break;
+      case 'done_action':
+        print('Done button pressed! ✅');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Done! ✅'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        break;
       default:
         print('Unknown action: $action');
     }

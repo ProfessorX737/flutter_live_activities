@@ -257,13 +257,29 @@ struct FootballMatchView: View {
         .foregroundColor(.black)
         .multilineTextAlignment(.center)
         .id("\(targetDurationMicros)-\(totalElapsedMicros)")
-        HStack(spacing: 20) {
-          // Play/Pause Button - no optimistic updates
+        HStack(spacing: 26) {
+          // Reset Button (far left)
+          Button(intent: ResetActionIntent()) {
+            Image(systemName: "arrow.counterclockwise")
+              .font(.system(size: 30, weight: .semibold))
+              .foregroundColor(.black)
+          }
+          .buttonStyle(.plain)
+
+          // Minus Button
+          Button(intent: MinusActionIntent()) {
+            Image(systemName: "minus")
+              .font(.system(size: 30, weight: .semibold))
+              .foregroundColor(.black)
+          }
+          .buttonStyle(.plain)
+
+          // Play/Pause Button
           Button(intent: SetPlayingIntent(isRunning: !isRunning)) {
             ZStack {
               if isRunning {
                 Image(systemName: "pause.fill")
-                  .font(.system(size: 32))
+                  .font(.system(size: 37, weight: .medium))
                   .foregroundColor(.black)
                   .transition(
                     .asymmetric(
@@ -272,7 +288,7 @@ struct FootballMatchView: View {
                     ))
               } else {
                 Image(systemName: "play.fill")
-                  .font(.system(size: 32))
+                  .font(.system(size: 37, weight: .medium))
                   .foregroundColor(.black)
                   .transition(
                     .asymmetric(
@@ -287,8 +303,16 @@ struct FootballMatchView: View {
 
           // Plus Button
           Button(intent: PlusActionIntent()) {
-            Image(systemName: "plus.circle")
-              .font(.system(size: 32))
+            Image(systemName: "plus")
+              .font(.system(size: 30, weight: .semibold))
+              .foregroundColor(.black)
+          }
+          .buttonStyle(.plain)
+
+          // Done Button (far right)
+          Button(intent: DoneActionIntent()) {
+            Image(systemName: "checkmark")
+              .font(.system(size: 32, weight: .semibold))
               .foregroundColor(.black)
           }
           .buttonStyle(.plain)
@@ -476,8 +500,35 @@ struct SetSliderValueIntent: MatchIntent {
 // Intent for the plus button interaction
 struct PlusActionIntent: MatchIntent {
   static var title: LocalizedStringResource = "Plus Action"
-  static var description = IntentDescription("Increment or add something to the match.")
+  static var description = IntentDescription("Add 5 minutes to the timer.")
 
   var actionType: String { "plus_action" }
+  var notificationSuffix: String { "button_clicked" }
+}
+
+// Intent for the minus button interaction
+struct MinusActionIntent: MatchIntent {
+  static var title: LocalizedStringResource = "Minus Action"
+  static var description = IntentDescription("Subtract 5 minutes from the timer.")
+
+  var actionType: String { "minus_action" }
+  var notificationSuffix: String { "button_clicked" }
+}
+
+// Intent for the reset button interaction
+struct ResetActionIntent: MatchIntent {
+  static var title: LocalizedStringResource = "Reset Action"
+  static var description = IntentDescription("Reset the timer.")
+
+  var actionType: String { "reset_action" }
+  var notificationSuffix: String { "button_clicked" }
+}
+
+// Intent for the done button interaction
+struct DoneActionIntent: MatchIntent {
+  static var title: LocalizedStringResource = "Done Action"
+  static var description = IntentDescription("Mark the timer as done.")
+
+  var actionType: String { "done_action" }
   var notificationSuffix: String { "button_clicked" }
 }
